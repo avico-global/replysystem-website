@@ -105,7 +105,7 @@ export default function LoginPage() {
           <div className="border-t mt-6 pt-6">
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-4">
-                Don't have an account yet?
+                Don&apos;t have an account yet?
               </p>
               <Link href="/demo">
                 <Button variant="outline" className="w-full bg-transparent">
