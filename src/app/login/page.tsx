@@ -46,7 +46,7 @@ export default function LoginPage() {
     if (workspaceUrls[normalizedWorkspace]) {
       window.location.href = workspaceUrls[normalizedWorkspace];
     } else {
-      setWorkspaceError("Invalid workspace name.");
+      setWorkspaceError("Workspace not found.");
     }
   };
 
