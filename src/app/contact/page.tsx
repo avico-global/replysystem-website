@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Label } from "@/components/ui/Label";
-import { Mail, Phone, MapPin, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { Mail, Phone, MapPin } from "lucide-react";
 import { useState } from "react";
 
 export default function ContactPage() {
@@ -52,6 +51,8 @@ export default function ContactPage() {
         message: "",
       });
     } catch (error) {
+      console.log(error);
+      
       setSubmitStatus("error");
     } finally {
       setIsSubmitting(false);

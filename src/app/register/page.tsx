@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,46 +15,59 @@ import {
   CogIcon,
   PaintBrushIcon,
 } from "@heroicons/react/24/outline";
+import { useApi } from "@/lib/useApi";
+import { useState } from "react";
+import toast, { Toaster } from "react-hot-toast";
 
 const step1Schema = z.object({
   companyName: z.string().min(2, "Company name must be at least 2 characters"),
-  website: z
+  supportMail: z
     .string()
-    .url("Please enter a valid website URL")
+    .email("Please enter a valid support email address")
     .optional()
     .or(z.literal("")),
+
   industry: z.string().min(1, "Please select an industry"),
 });
 
-const step2Schema = z
-  .object({
-    firstName: z.string().min(2, "First name must be at least 2 characters"),
-    lastName: z.string().min(2, "Last name must be at least 2 characters"),
-    workEmail: z.string().email("Please enter a valid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
+const step2Schema = z.object({
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  workEmail: z.string().email("Please enter a valid email address"),
+  abbreviation: z
+    .string()
+    .min(3, "Abbreviation must be at least 3 letters")
+    .max(6, "Abbreviation cannot be longer than 6 letters")
+    .regex(
+      /^[A-Z]+$/,
+      "Abbreviation must contain only uppercase letters (A–Z)"
+    ),
+});
 
 const step3Schema = z.object({
-  subdomain: z
-    .string()
-    .min(3, "Subdomain must be at least 3 characters")
-    .regex(
-      /^[a-z0-9-]+$/,
-      "Only lowercase letters, numbers, and hyphens allowed"
-    ),
+  // subdomain: z
+  //   .string()
+  //   .min(3, "Subdomain must be at least 3 characters")
+  //   .regex(
+  //     /^[a-z0-9-]+$/,
+  //     "Only lowercase letters, numbers, and hyphens allowed"
+  //   ),
   timezone: z.string().min(1, "Please select a timezone"),
 });
 
+// const step4Schema = z.object({
+//   enablePortal: z.boolean(),
+//   accentColor: z
+//     .string()
+//     .regex(/^#[0-9A-F]{6}$/i, "Please enter a valid hex color"),
+// });
+
 const step4Schema = z.object({
-  enablePortal: z.boolean(),
-  accentColor: z
-    .string()
-    .regex(/^#[0-9A-F]{6}$/i, "Please enter a valid hex color"),
+  // enablePortal: z.boolean(),
+  // accentColor: z.string().regex(/^#[0-9A-F]{6}$/i, "Please enter a valid hex color"),
+  companyLogo: z.instanceof(File).optional(),
+  frontPageImage: z.instanceof(File).optional(),
+  favicon: z.instanceof(File).optional(),
 });
 
 type Step1Data = z.infer<typeof step1Schema>;
@@ -96,7 +109,23 @@ export default function Register() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({});
+  const [showModal, setShowModal] = useState(false);
+  const [selectedType, setSelectedType] = useState(null);
+  const [userType, setUserType] = useState<string | null>(null);
+  const { data, loading, error, callApi } = useApi();
+  type MultiStepFormData = Step1Data & Step2Data & Step3Data & Step4Data & { userType?: string };
+  const [formData, setFormData] = useState<Partial<MultiStepFormData>>({});
+
+
+  useEffect(() => {
+    const savedType = localStorage.getItem("userType");
+    if (savedType) {
+      setUserType(savedType);
+      setShowModal(false);
+    } else {
+      setShowModal(true);
+    }
+  }, []);
 
   const step1Form = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
@@ -113,13 +142,15 @@ export default function Register() {
     },
   });
 
-  const step4Form = useForm<Step4Data>({
-    resolver: zodResolver(step4Schema),
-    defaultValues: {
-      enablePortal: true,
-      accentColor: "#FFD700",
-    },
-  });
+  // const step4Form = useForm<Step4Data>({
+  //   resolver: zodResolver(step4Schema),
+  //   defaultValues: {
+  //     enablePortal: true,
+  //     accentColor: "#FFD700",
+  //   },
+  // });
+    const step4Form = useForm<Step4Data>({ resolver: zodResolver(step4Schema) });
+
 
   const handleStep1Submit = (data: Step1Data) => {
     setFormData({ ...formData, ...data });
@@ -136,23 +167,85 @@ export default function Register() {
     setCurrentStep(4);
   };
 
-  const handleStep4Submit = async (data: Step4Data) => {
-    const finalData = { ...formData, ...data };
-    setIsSubmitting(true);
+ 
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    console.log("Registration data:", finalData);
+const handleStep4Submit = async (data: Step4Data) => {
+  const collectedData = { ...formData, ...data, userType };
+  const formPayload = new FormData();
+  formPayload.append(
+    "name",
+    `${collectedData.firstName || ""} ${collectedData.lastName || ""}`
+  );
+  formPayload.append("email", collectedData.workEmail || "");
+  formPayload.append("company", collectedData.companyName || "");
+  formPayload.append("supportMail", collectedData.supportMail || collectedData.workEmail || "");
+  formPayload.append(
+    "initiateTicketName",
+    collectedData.abbreviation?.toUpperCase() || "DEFAULT"
+  );
+ const statusInfo = localStorage.getItem("userType") || "{}";
 
-    setIsSubmitting(false);
+formPayload.append(
+  "isAgency",
+  statusInfo === "agency" ? "true" : "false"
+);
+
+  if (collectedData.frontPageImage) {
+    formPayload.append("frontPageImage", collectedData.frontPageImage);
+  }
+  if (collectedData.favicon) {
+    formPayload.append("favicon", collectedData.favicon);
+  }
+  console.log("FormData contents:");
+  for (const [key, value] of formPayload.entries()) {
+    if (value instanceof File) {
+      console.log(key, value.name, value.type, value.size + " bytes");
+    } else {
+      console.log(key, value);
+    }
+  }
+  try {
+    const response = await callApi("/auth/merchantSignup", formPayload);
+    console.log("API response:", response);
+    let message = response?.messgae;
+    toast.success(message || "Workspace created successfully!");
+    localStorage.removeItem("userType");
     setIsSubmitted(true);
-  };
+  } catch (err: any) {
+    console.error(err);
+    toast.error(err.response?.data?.error || "Something went wrong");
+  }
+};
+
+
+
 
   const goBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
   };
+
+  useEffect(() => {
+    const savedType = localStorage.getItem("userType");
+    if (!savedType) {
+      setShowModal(true);
+    }
+  }, []);
+
+  const handleUserTypeSelect = (type: any) => {
+    setUserType(type);
+    setSelectedType(type);
+    localStorage.setItem("userType", type);
+    setShowModal(false);
+  };
+  useEffect(() => {
+    if (showModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+  }, [showModal]);
 
   if (isSubmitted) {
     return (
@@ -178,8 +271,59 @@ export default function Register() {
     );
   }
 
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files[0]) {
+    const file = e.target.files[0];
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: file, 
+    }));
+  }
+};
+
+
+
   return (
     <div className="bg-white">
+      <Toaster />
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Soft blurry grey overlay */}
+          <div className="absolute inset-0 bg-gray-100/50 backdrop-blur-md pointer-events-none"></div>
+
+          {/* Modal box */}
+          <div className="relative bg-white rounded-xl shadow-2xl p-8 w-full max-w-md border border-gray-200 z-10 pointer-events-auto">
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">
+              Who are you signing up as?
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Choose the type that best describes your role. This helps us
+              tailor your workspace setup and options.
+            </p>
+            <div className="space-y-4">
+              {["agency", "merchant"].map((type) => (
+                <button
+                  key={type}
+                  onClick={() => handleUserTypeSelect(type)}
+                  className={`w-full text-left p-4 rounded-lg transition-all duration-200 border-2 ${
+                    selectedType === type
+                      ? "bg-yellow-500 border-yellow-500 text-black"
+                      : "bg-white border-gray-300 text-gray-800 hover:bg-yellow-50 hover:border-yellow-300"
+                  }`}
+                >
+                  <span className="font-semibold capitalize">{type}</span>
+                  <p className="text-sm mt-1">
+                    {type === "agency"
+                      ? "Manage multiple clients, projects, and workflows efficiently."
+                      : "Focus on your own business operations and client support."}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-3xl px-6 py-16 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
@@ -263,10 +407,11 @@ export default function Register() {
                 />
 
                 <Input
-                  label="Website (Optional)"
-                  placeholder="https://yourcompany.com"
-                  {...step1Form.register("website")}
-                  error={step1Form.formState.errors.website?.message}
+                  label="Support Email"
+                  type="email"
+                  placeholder="support@yourcompany.com"
+                  {...step1Form.register("supportMail")}
+                  error={step1Form.formState.errors.supportMail?.message}
                 />
 
                 <div className="space-y-2">
@@ -340,19 +485,21 @@ export default function Register() {
                 />
 
                 <Input
-                  label="Password"
-                  type="password"
-                  placeholder="Create a strong password"
-                  {...step2Form.register("password")}
-                  error={step2Form.formState.errors.password?.message}
-                />
-
-                <Input
-                  label="Confirm Password"
-                  type="password"
-                  placeholder="Confirm your password"
-                  {...step2Form.register("confirmPassword")}
-                  error={step2Form.formState.errors.confirmPassword?.message}
+                  label="Abbreviation"
+                  type="text"
+                  placeholder="Enter 3–6 letters (A–Z)"
+                  maxLength={6}
+                  {...step2Form.register("abbreviation", {
+                    onChange: (e) => {
+                      let value = e.target.value
+                        .replace(/[^A-Za-z]/g, "")
+                        .toUpperCase();
+                      step2Form.setValue("abbreviation", value, {
+                        shouldValidate: true,
+                      });
+                    },
+                  })}
+                  error={step2Form.formState.errors.abbreviation?.message}
                 />
 
                 <div className="flex gap-4 pt-4">
@@ -388,7 +535,7 @@ export default function Register() {
                   </p>
                 </div>
 
-                <div>
+                {/* <div>
                   <Input
                     label="Subdomain"
                     placeholder="yourcompany"
@@ -399,7 +546,7 @@ export default function Register() {
                     Your workspace will be available at:
                     yourcompany.replysystem.com
                   </p>
-                </div>
+                </div> */}
 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
@@ -449,7 +596,7 @@ export default function Register() {
                     Customize your client experience
                   </p>
                 </div>
-
+{/* 
                 <div className="space-y-4">
                   <div className="flex items-center">
                     <input
@@ -489,10 +636,63 @@ export default function Register() {
                     Logo Upload (Coming Soon)
                   </h4>
                   <p className="text-xs text-yellow-800">
-                    You&apos;ll be able to upload your company logo after creating
-                    your workspace.
+                    You&apos;ll be able to upload your company logo after
+                    creating your workspace.
                   </p>
-                </div>
+                </div> */}
+
+
+                <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Company Logo
+                              </label>
+                              <input
+                                type="file"
+                                name="companyLogo"
+                                onChange={handleFileChange}
+                                accept="image/*"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90"
+                              />
+                              {formData.companyLogo && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Selected: {formData.companyLogo.name}
+                                </p>
+                              )}
+                            </div>
+                               <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Front Page Image
+                              </label>
+                              <input
+                                type="file"
+                                name="frontPageImage"
+                                onChange={handleFileChange}
+                                accept="image/*"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90"
+                              />
+                              {formData.frontPageImage && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Selected: {formData.frontPageImage.name}
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Favicon
+                              </label>
+                              <input
+                                type="file"
+                                name="favicon"
+                                onChange={handleFileChange}
+                                accept="image/*"
+                                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90"
+                              />
+                              {formData.favicon && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Selected: {formData.favicon.name}
+                                </p>
+                              )}
+                            </div>
 
                 <div className="flex gap-4 pt-4">
                   <Button
@@ -541,4 +741,3 @@ export default function Register() {
     </div>
   );
 }
-
