@@ -27,7 +27,7 @@ const step1Schema = z.object({
     .optional()
     .or(z.literal("")),
 
-  industry: z.string().min(1, "Please select an industry"),
+  // industry: z.string().min(1, "Please select an industry"),
 });
 
 const step2Schema = z.object({
@@ -212,8 +212,19 @@ formPayload.append(
     localStorage.removeItem("userType");
     setIsSubmitted(true);
   } catch (err: any) {
-    console.error(err);
-    toast.error(err.response?.data?.error || "Something went wrong");
+    const resData = err.response?.data;
+    let errorMessage =
+      resData?.error ||
+      resData?.message ||
+      err.message ||
+      "Something went wrong";
+
+    // If errors array exists, join them
+    if (Array.isArray(resData?.errors) && resData.errors.length > 0) {
+      errorMessage = resData.errors.join(", ");
+    }
+
+    toast.error(errorMessage);
   }
 };
 
@@ -414,7 +425,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                   error={step1Form.formState.errors.supportMail?.message}
                 />
 
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Industry
                   </label>
@@ -436,7 +447,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                       {step1Form.formState.errors.industry.message}
                     </p>
                   )}
-                </div>
+                </div> */}
 
                 <div className="pt-4">
                   <Button type="submit" className="w-full" size="lg">
