@@ -9,7 +9,7 @@ interface ApiState<T> {
   error: string | null;
 }
 
-export const useApi = <T = any>() => {
+export const useApi = <T = unknown>() => {
   const baseURL = process.env.NEXT_PUBLIC_API_URL;
   const defaultOrigin = "https://dev.replysystem.com";
   const [state, setState] = useState<ApiState<T>>({
@@ -32,7 +32,7 @@ export const useApi = <T = any>() => {
 
   const callApi = async (
     endpoint: string,
-    payload?: any,
+  payload?: T,
     method: "POST" | "GET" | "PUT" | "DELETE" = "POST",
     headers?: AxiosRequestHeaders
   ) => {
@@ -49,14 +49,26 @@ export const useApi = <T = any>() => {
       });
       setState({ data: response.data, loading: false, error: null });
       return response.data;
-    } catch (err: any) {
+    } catch (err) {
+      let errorMsg = "Something went wrong";
+      // Type guard for error with response
+      if (typeof err === "object" && err !== null) {
+        if (
+          "response" in err &&
+          typeof (err as { response?: { data?: { message?: string } } }).response?.data?.message === "string"
+        ) {
+          errorMsg = (err as { response?: { data?: { message?: string } } }).response?.data?.message ?? errorMsg;
+        } else if (
+          "message" in err &&
+          typeof (err as { message?: string }).message === "string"
+        ) {
+          errorMsg = (err as { message?: string }).message ?? errorMsg;
+        }
+      }
       setState({
         data: null,
         loading: false,
-        error:
-          err.response?.data?.message ||
-          err.message ||
-          "Something went wrong",
+        error: errorMsg,
       });
       throw err;
     }

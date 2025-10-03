@@ -75,17 +75,7 @@ type Step2Data = z.infer<typeof step2Schema>;
 type Step3Data = z.infer<typeof step3Schema>;
 type Step4Data = z.infer<typeof step4Schema>;
 
-const industries = [
-  "Technology",
-  "Healthcare",
-  "Finance",
-  "Education",
-  "Retail",
-  "Manufacturing",
-  "Professional Services",
-  "Non-profit",
-  "Other",
-];
+
 
 const timezones = [
   "America/New_York",
@@ -108,11 +98,13 @@ const steps = [
 export default function Register() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting] = useState(false); // setIsSubmitting removed (unused)
   const [showModal, setShowModal] = useState(false);
-  const [selectedType, setSelectedType] = useState(null);
+const [selectedType, setSelectedType] = useState<"agency" | "merchant" | null>(null);
+
   const [userType, setUserType] = useState<string | null>(null);
-  const { data, loading, error, callApi } = useApi();
+  // Only one declaration for callApi
+  const { callApi } = useApi();
   type MultiStepFormData = Step1Data & Step2Data & Step3Data & Step4Data & { userType?: string };
   const [formData, setFormData] = useState<Partial<MultiStepFormData>>({});
 
@@ -207,17 +199,28 @@ formPayload.append(
   try {
     const response = await callApi("/auth/merchantSignup", formPayload);
     console.log("API response:", response);
-    let message = response?.messgae;
+    const message = response?.messgae;
     toast.success(message || "Workspace created successfully!");
     localStorage.removeItem("userType");
     setIsSubmitted(true);
-  } catch (err: any) {
-    const resData = err.response?.data;
-    let errorMessage =
-      resData?.error ||
-      resData?.message ||
-      err.message ||
-      "Something went wrong";
+    // @typescript-eslint/no-explicit-any
+  } catch (err: unknown) {
+    let errorMessage = "Something went wrong";
+    let resData: { error?: string; message?: string; errors?: string[] } | undefined;
+    if (typeof err === "object" && err !== null && "response" in err) {
+      const errorObj = err as { response?: { data?: { error?: string; message?: string; errors?: string[] } } };
+      resData = errorObj.response?.data;
+      errorMessage =
+        resData?.error ||
+        resData?.message ||
+        (typeof err === "object" && "message" in err && typeof (err as { message?: string }).message === "string"
+          ? (err as { message?: string }).message
+          : undefined) ||
+        "Something went wrong";
+    }
+    if (Array.isArray(resData?.errors) && resData.errors.length > 0) {
+      errorMessage = resData.errors.join(", ");
+    }
 
     // If errors array exists, join them
     if (Array.isArray(resData?.errors) && resData.errors.length > 0) {
@@ -243,13 +246,21 @@ formPayload.append(
       setShowModal(true);
     }
   }, []);
+// @typescript-eslint/no-explicit-any
+  // const handleUserTypeSelect = (type: any) => {
+  // setUserType(type);
+  // setSelectedType(type);
+  // localStorage.setItem("userType", type);
+  // setShowModal(false);
+  // };
 
-  const handleUserTypeSelect = (type: any) => {
-    setUserType(type);
-    setSelectedType(type);
-    localStorage.setItem("userType", type);
-    setShowModal(false);
-  };
+  const handleUserTypeSelect = (type: "agency" | "merchant") => {
+  setUserType(type);
+  setSelectedType(type);
+  localStorage.setItem("userType", type);
+  setShowModal(false);
+};
+
   useEffect(() => {
     if (showModal) {
       document.body.style.overflow = "hidden";
@@ -312,7 +323,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               tailor your workspace setup and options.
             </p>
             <div className="space-y-4">
-              {["agency", "merchant"].map((type) => (
+              {(["agency", "merchant"] as const).map((type) => (
                 <button
                   key={type}
                   onClick={() => handleUserTypeSelect(type)}
@@ -502,7 +513,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                   maxLength={6}
                   {...step2Form.register("abbreviation", {
                     onChange: (e) => {
-                      let value = e.target.value
+                      const value = e.target.value
                         .replace(/[^A-Za-z]/g, "")
                         .toUpperCase();
                       step2Form.setValue("abbreviation", value, {
