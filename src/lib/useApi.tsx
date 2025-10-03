@@ -10,7 +10,8 @@ interface ApiState<T> {
 }
 
 export const useApi = <T = unknown>() => {
-  const baseURL = process.env.NEXT_PUBLIC_API_URL;
+  // const baseURL = process.env.NEXT_PUBLIC_API_URL;
+  const baseURL = "https://dev-api.replysystem.com/api";
   const defaultOrigin = "https://dev.replysystem.com";
   const [state, setState] = useState<ApiState<T>>({
     data: null,

@@ -185,6 +185,10 @@ formPayload.append(
   if (collectedData.frontPageImage) {
     formPayload.append("frontPageImage", collectedData.frontPageImage);
   }
+
+  if (collectedData.companyLogo) {
+    formPayload.append("companyLogo", collectedData?.companyLogo);
+  }
   if (collectedData.favicon) {
     formPayload.append("favicon", collectedData.favicon);
   }
