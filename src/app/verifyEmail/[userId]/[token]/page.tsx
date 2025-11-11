@@ -22,45 +22,43 @@ export default function VerifyEmailPage() {
   const { callApi, loading } = useApi<VerifyResponse>();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<VerifyResponse | null>(null);
+  const verifyEmail = async () => {
+    try {
+      const res = await callApi(
+        `/auth/merchantVerification/${userId}/${token}`,
+        undefined,
+        "GET"
+      );
+
+      setSuccess(res as VerifyResponse);
+    } catch (err: unknown) {
+      // Normalize error extraction without using `any` by leveraging axios' type guard
+      console.error("Email verification failed:", err);
+      let msg = "Something went wrong";
+
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as
+          | { error?: string; message?: string }
+          | undefined;
+        msg = data?.error ?? data?.message ?? msg;
+      } else if (
+        typeof err === "object" &&
+        err !== null &&
+        "message" in err &&
+        typeof (err as { message?: unknown }).message === "string"
+      ) {
+        msg = (err as { message?: unknown }).message as string;
+      }
+
+      setError(msg);
+    }
+  };
 
   useEffect(() => {
     if (!userId || !token) return;
 
-    const verifyEmail = async () => {
-      try {
-        const res = await callApi(
-          `/auth/merchantVerification/${userId}/${token}`,
-          undefined,
-          "GET"
-        );
-
-        setSuccess(res as VerifyResponse);
-      } catch (err: unknown) {
-        // Normalize error extraction without using `any` by leveraging axios' type guard
-        console.error("Email verification failed:", err);
-        let msg = "Something went wrong";
-
-        if (axios.isAxiosError(err)) {
-          const data = err.response?.data as
-            | { error?: string; message?: string }
-            | undefined;
-          msg = data?.error ?? data?.message ?? msg;
-        } else if (
-          typeof err === "object" &&
-          err !== null &&
-          "message" in err &&
-          typeof (err as { message?: unknown }).message === "string"
-        ) {
-          msg = (err as { message?: unknown }).message as string;
-        }
-
-        setError(msg);
-      }
-    };
-
     verifyEmail();
-  // include callApi in deps to satisfy the hooks rule; it is stable enough here
-  }, [userId, token, router, callApi]);
+  }, []);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
@@ -110,8 +108,8 @@ export default function VerifyEmailPage() {
             </button>
 
             <p className="text-gray-400 text-sm mt-4">
-              Check your email inbox for your login credentials if you haven&apos;t
-              received them yet.{" "}
+              Check your email inbox for your login credentials if you
+              haven&apos;t received them yet.{" "}
               {success?.supportMail && (
                 <a
                   href={`mailto:${success.supportMail}`}
