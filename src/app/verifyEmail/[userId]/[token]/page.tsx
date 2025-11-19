@@ -18,7 +18,6 @@ export default function VerifyEmailPage() {
   const params = useParams();
   const { userId, token } = params as { userId: string; token: string };
 
-  // Typed useApi so the response has a reasonable shape instead of `any`.
   const { callApi, loading } = useApi<VerifyResponse>();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<VerifyResponse | null>(null);
@@ -32,7 +31,6 @@ export default function VerifyEmailPage() {
 
       setSuccess(res as VerifyResponse);
     } catch (err: unknown) {
-      // Normalize error extraction without using `any` by leveraging axios' type guard
       console.error("Email verification failed:", err);
       let msg = "Something went wrong";
 
